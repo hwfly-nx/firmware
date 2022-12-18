@@ -32,9 +32,28 @@ void clocks_init()
 	rcu_periph_clock_enable(RCU_GPIOF);
 }
 
+// This clock is used by FPGA for its operation
 void clock_output_init()
 {
-	rcu_ckout_config(RCU_CKOUTSRC_CKPLL_DIV2, 1);
+	// Original:
+	// The `1` as second parameter is weird, because that messes up SCS
+	// (setting it to "Reserved" if my reading of
+	// libs/CMSIS/system_gd32f3x0.c is right)
+	// rcu_ckout_config(RCU_CKOUTSRC_CKPLL_DIV2, 1);
+
+	// This works. And IMO is correct:
+	rcu_ckout_config(RCU_CKOUTSRC_CKPLL_DIV2, RCU_CKOUT_DIV1);
+
+	// A few more for educational purposes:
+	// If you stop the clock completely (see below), the FPGA is unable to
+	// count (the glitch clock doesn't work, no emmc flags either, probably
+	// the emmc comms is gone too)
+	// rcu_ckout_config(RCU_CKOUTSRC_NONE, RCU_CKOUT_DIV1);
+	//
+	// Slowing it to 0.5 (below), glitching takes forever, but eventually
+	// succeeds.
+	// rcu_ckout_config(RCU_CKOUTSRC_CKPLL_DIV2, RCU_CKOUT_DIV2);
+
 	gpio_mode_set(CK_OUT_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_PULLUP, CK_OUT_GPIO_PIN);
 	gpio_af_set(CK_OUT_GPIO_PORT, GPIO_AF_0, CK_OUT_GPIO_PIN);
 }
