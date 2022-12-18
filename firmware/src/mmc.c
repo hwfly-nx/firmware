@@ -58,7 +58,7 @@ int mmc_send_command(uint32_t cmd, uint32_t argument, uint32_t *res, uint8_t *io
 			data[6] = 5;
 			if (io)
 			{
-				fpga_select_active_buffer(1);
+				fpga_select_active_buffer(FPGA_BUFFER_CMD_DATA);
 				fpga_write_buffer(io, 512);
 			}
 			break;
@@ -69,19 +69,19 @@ int mmc_send_command(uint32_t cmd, uint32_t argument, uint32_t *res, uint8_t *io
 			break;
 	}
 
-	fpga_select_active_buffer(0);
+	fpga_select_active_buffer(FPGA_BUFFER_CMD);
 	fpga_write_buffer(data, 7);
 	fpga_do_mmc_command();
 
 	int retry = 2000;
-	while (fpga_read_mmc_flags() & 1)
+	while (fpga_read_mmc_flags() & FPGA_MMC_BUSY_SENDING)
 	{
 		if (!--retry)
 			return -1;
 		delay_us(50);
 	}
 
-	fpga_select_active_buffer(0);
+	fpga_select_active_buffer(FPGA_BUFFER_CMD);
 	uint8_t tmp[32];
 	fpga_read_buffer(tmp, 32);
 
@@ -94,9 +94,9 @@ int mmc_send_command(uint32_t cmd, uint32_t argument, uint32_t *res, uint8_t *io
 			*res = __builtin_bswap32(*(uint32_t *) &tmp[1]);
 	}
 
-	if (cmd == 17 && io)
+	if (cmd == MMC_READ_SINGLE_BLOCK && io)
 	{
-		fpga_select_active_buffer(1);
+		fpga_select_active_buffer(FPGA_BUFFER_CMD_DATA);
 		fpga_read_buffer(io, 512);
 	}
 

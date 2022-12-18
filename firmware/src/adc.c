@@ -15,6 +15,7 @@
  */
 
 #include <gd32f3x0.h>
+#include <board.h>
 #include <adc.h>
 #include <fpga.h>
 #include <delay.h>
@@ -53,21 +54,21 @@ int init_device_specific_adc(enum DEVICE_TYPE dt, struct adc_param *pap)
 {
 	if (dt == DEVICE_TYPE_ERISTA)
 	{
-		adc_init(GPIOB, GPIO_PIN_0, 8);
+		adc_init(SWITCH_ERISTA_ADC_GPIO_PORT, SWITCH_ERISTA_ADC_GPIO_PIN, 8);
 		pap->poweron_threshold = 1200;
 		pap->glitch_threshold = 1376;
 		return 0;
 	}
 	if (dt == DEVICE_TYPE_MARIKO)
 	{
-		adc_init(GPIOB, GPIO_PIN_1, 9);
+		adc_init(SWITCH_MARIKO_ADC_GPIO_PORT, SWITCH_MARIKO_ADC_GPIO_PIN, 9);
 		pap->poweron_threshold = 1024;
 		pap->glitch_threshold = 1296;
 		return 0;
 	}
 	if (dt == DEVICE_TYPE_LITE)
 	{
-		adc_init(GPIOA, GPIO_PIN_2, 2);
+		adc_init(SWITCH_LITE_ADC_GPIO_PORT, SWITCH_LITE_ADC_GPIO_PIN, 2);
 		pap->poweron_threshold = 1024;
 		pap->glitch_threshold = 1270;
 		return 0;
