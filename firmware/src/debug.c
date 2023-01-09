@@ -294,7 +294,7 @@ void debug_main(struct bootloader_usb *usb)
 					do
 					{
 						fpga_pre_recv();
-						fpga_select_active_buffer(1);
+						fpga_select_active_buffer(FPGA_BUFFER_CMD_DATA);
 						fpga_read_buffer(recv_buffer, sizeof(recv_buffer));
 						fpga_post_recv();
 						dbglog("# Got command: %x %x %x\n", recv_buffer[0], recv_buffer[1], recv_buffer[2]);
@@ -302,7 +302,7 @@ void debug_main(struct bootloader_usb *usb)
 						{
 							resp_buffer[0] = ~recv_buffer[0];
 							*(uint32_t *) &resp_buffer[1] = 0x70000000;
-							fpga_select_active_buffer(1);
+							fpga_select_active_buffer(FPGA_BUFFER_CMD_DATA);
 							fpga_write_buffer(resp_buffer, sizeof(resp_buffer));
 							fpga_post_send();
 						}

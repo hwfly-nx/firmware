@@ -62,7 +62,8 @@
 // PA13 - SWD_IO
 #define DEBUG_GPIO_PORT				GPIOF
 #define DEBUG_GPIO_PIN				GPIO_PIN_6
-// PF7 - ???
+#define MCU_RESET_CONFIG_PORT		GPIOF
+#define MCU_RESET_CONFIG_PIN		GPIO_PIN_7
 
 // PA14 - SWD_CLK
 // PA15 - ???

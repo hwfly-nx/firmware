@@ -68,14 +68,14 @@ void firmware_main()
 
 	while (1)
 	{
-		gpio_mode_set(GPIOF, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, BIT(7));
+		gpio_mode_set(MCU_RESET_CONFIG_PORT, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, MCU_RESET_CONFIG_PIN);
 		delay_ms(5u);
-		int pinWhilePulledUp = gpio_input_bit_get(GPIOF, BIT(7));
+		int pinWhilePulledUp = gpio_input_bit_get(MCU_RESET_CONFIG_PORT, MCU_RESET_CONFIG_PIN);
 
 		// configure GPIO to input with pull-down
-		gpio_mode_set(GPIOF, GPIO_MODE_INPUT, GPIO_PUPD_PULLDOWN, BIT(7));
+		gpio_mode_set(MCU_RESET_CONFIG_PORT, GPIO_MODE_INPUT, GPIO_PUPD_PULLDOWN, MCU_RESET_CONFIG_PIN);
 		delay_ms(5u);
-		int pinWhilePulledDown = gpio_input_bit_get(GPIOF, BIT(7));
+		int pinWhilePulledDown = gpio_input_bit_get(MCU_RESET_CONFIG_PORT, MCU_RESET_CONFIG_PIN);
 
 		if (pinWhilePulledDown && pinWhilePulledUp && syncAttempt < 95)
 		{

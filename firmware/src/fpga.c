@@ -31,13 +31,13 @@ void fpga_init_spi(int prescale)
 	spi_struct.trans_mode = SPI_TRANSMODE_FULLDUPLEX;
 	spi_struct.device_mode = SPI_MASTER;
 	spi_struct.frame_size = SPI_FRAMESIZE_8BIT;
-	spi_struct.clock_polarity_phase = SPI_CK_PL_HIGH_PH_2EDGE;
-	spi_struct.nss = SPI_NSS_SOFT;
-	spi_struct.prescale = prescale;
+	spi_struct.clock_polarity_phase = SPI_CK_PL_HIGH_PH_2EDGE; // idle is high, pick up at posedge
+	spi_struct.nss = SPI_NSS_SOFT; // possibly: we control the slave select manually
+	spi_struct.prescale = prescale; // fpga_reset(): div by 4 (SPI_PSC_4), fpga_init() div by 2 (SPI_PSC_2)
 	spi_struct.endian = SPI_ENDIAN_MSB;
 	spi_i2s_deinit(SPI0);
 	spi_init(SPI0, &spi_struct);
-	spi_ti_mode_disable(SPI0);
+	spi_ti_mode_disable(SPI0); // slave select (SS) pin is low the entire time we transmit
 	spi_enable(SPI0);
 }
 
@@ -65,6 +65,7 @@ void fpga_init()
 	gpio_mode_set(FPGA_CS_GPIO_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, FPGA_CS_GPIO_PIN);
 }
 
+// spin as long as we're transmitting in background, then deselect SS (pull high)
 void gpioa_set_pin4()
 {
 	while (SPI_STAT(SPI0) & SPI_STAT_TRANS)
@@ -72,6 +73,7 @@ void gpioa_set_pin4()
 	gpio_bit_set(FPGA_CS_GPIO_PORT, FPGA_CS_GPIO_PIN);
 }
 
+// select SS (pull low); before start of SPI transfer
 void gpioa_clear_pin4()
 {
 	gpio_bit_reset(FPGA_CS_GPIO_PORT, FPGA_CS_GPIO_PIN);
@@ -79,7 +81,7 @@ void gpioa_clear_pin4()
 
 uint32_t fpga_reset()
 {
-	fpga_init_spi(8);
+	fpga_init_spi(8); // SPI_PSC_4 (XXX: weird!)
 
 	gpio_bit_reset(FPGA_PWR_EN_PORT, FPGA_PWR_EN_PIN);
 	gpioa_set_pin4();
@@ -97,6 +99,7 @@ void fpga_power_off()
 	gpio_bit_reset(FPGA_PWR_EN_PORT, FPGA_PWR_EN_PIN);
 }
 
+// send len bytes, ignoring any received data
 void spi0_send(uint8_t *buf, int len)
 {
 	for (int i = 0; i < len; i++)
@@ -108,6 +111,7 @@ void spi0_send(uint8_t *buf, int len)
 	while ((SPI_STAT(SPI0) & (SPI_STAT_TRANS | SPI_STAT_TBE | SPI_STAT_RBNE)) != SPI_STAT_TBE);
 }
 
+// send len bytes, rewriting the buf with received data
 void spi0_spi_transfer_buffer(uint8_t *buf, int len)
 {
 	for (int i = 0; i < len; i++)
@@ -119,6 +123,7 @@ void spi0_spi_transfer_buffer(uint8_t *buf, int len)
 	while ((SPI_STAT(SPI0) & (SPI_STAT_TRANS | SPI_STAT_TBE | SPI_STAT_RBNE)) != SPI_STAT_TBE);
 }
 
+// send {0x24, subcmd, value}
 void transfer_spi0_24_byte(uint8_t subcmd, uint8_t value)
 {
 	uint8_t buf[3];
@@ -132,6 +137,7 @@ void transfer_spi0_24_byte(uint8_t subcmd, uint8_t value)
 	gpioa_set_pin4();
 }
 
+// send {0x24, subcmd, value0, value1}
 void transfer_spi0_24_word(uint8_t subcmd, uint16_t value)
 {
 	uint8_t buf[4];
@@ -146,6 +152,7 @@ void transfer_spi0_24_word(uint8_t subcmd, uint16_t value)
 	gpioa_set_pin4();
 }
 
+// send {0x26, subcmd}, return buf[2]
 uint8_t transfer_spi0_26_byte(uint8_t subcmd)
 {
 	uint8_t buf[3];
@@ -157,16 +164,26 @@ uint8_t transfer_spi0_26_byte(uint8_t subcmd)
 	return buf[2];
 }
 
+// send {0x24, 0x6, value}
 void transfer_spi0_24_6(uint8_t value)
 {
 	transfer_spi0_24_byte(0x6, value);
 }
 
+// send {0x24, 0x5, buffer}
+// fpga.h says:
+// FPGA_BUFFER_CMD = 0, // traffic on CMD line
+// FPGA_BUFFER_CMD_DATA = 1, // data from host-->device commands, also toolkit comms
+// FPGA_BUFFER_RESP_DATA = 2, // data from device-->host responses
 void fpga_select_active_buffer(enum FPGA_BUFFER buffer)
 {
 	transfer_spi0_24_byte(0x5, buffer);
 }
 
+// send bunch of {0x24, 6, ...}
+//
+// do_clock_stuck_glitch is IMO incorrect. It forces CMD line low for about 2s,
+// which gets the BPSP somehow stuck.
 void fpga_reset_device(int do_clock_stuck_glitch)
 {
 	transfer_spi0_24_6(0x80);
@@ -182,6 +199,7 @@ void fpga_reset_device(int do_clock_stuck_glitch)
 	}
 }
 
+// send bunch of {0x24, 0x[12368], ...}
 void fpga_glitch_device(glitch_cfg_t *cfg)
 {
 	transfer_spi0_24_6(0);
@@ -194,16 +212,19 @@ void fpga_glitch_device(glitch_cfg_t *cfg)
 	transfer_spi0_24_6(0x10);
 }
 
+// send {0x26, 0xA}, read back one byte
 uint8_t fpga_read_glitch_flags()
 {
 	return transfer_spi0_26_byte(0xA);
 }
 
+// send {0x26, 0xB}, read back one byte
 uint8_t fpga_read_mmc_flags()
 {
 	return transfer_spi0_26_byte(0xB);
 }
 
+// send {0xEE, 0x00, 0x00, 0x00, 0x00}, read back four bytes as the FPGA id
 uint32_t fpga_read_type()
 {
 	uint8_t buf[5];
@@ -216,6 +237,7 @@ uint32_t fpga_read_type()
 	return res;
 }
 
+// send {0x54}
 void fpga_do_mmc_command()
 {
 	uint8_t cmd = 0x54;
@@ -224,6 +246,7 @@ void fpga_do_mmc_command()
 	gpioa_set_pin4();
 }
 
+// send {0xBA}, then read size into the buffer
 void fpga_read_buffer(uint8_t *buffer, uint32_t size)
 {
 	uint8_t cmd = 0xBA;
@@ -233,6 +256,7 @@ void fpga_read_buffer(uint8_t *buffer, uint32_t size)
 	gpioa_set_pin4();
 }
 
+// send {0xBC}, then write size from the buffer
 void fpga_write_buffer(uint8_t *buffer, uint32_t size)
 {
 	uint8_t cmd = 0xBC;
@@ -242,22 +266,26 @@ void fpga_write_buffer(uint8_t *buffer, uint32_t size)
 	gpioa_set_pin4();
 }
 
+// send {0x24, 0x6, 0x4} then {0x24, 0x6, 0x1}
 void fpga_enter_cmd_mode()
 {
 	transfer_spi0_24_6(4);
 	transfer_spi0_24_6(1);
 }
 
+// spinloop send {0x26, 0xB} until FPGA_MMC_BUSY_LOADER_DATA_RCVD clears
 void fpga_pre_recv()
 {
 	while (!(fpga_read_mmc_flags() & FPGA_MMC_BUSY_LOADER_DATA_RCVD));
 }
 
+// send {0x24, 0x6, 5}
 void fpga_post_recv()
 {
 	transfer_spi0_24_6(5);
 }
 
+// send {0x24, 0x6, 3}
 void fpga_post_send()
 {
 	transfer_spi0_24_6(3);

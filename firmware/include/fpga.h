@@ -28,10 +28,14 @@ void fpga_power_off();
 
 enum FPGA_BUFFER
 {
-	FPGA_BUFFER_CMD = 0, // traffic on CMD line
-	FPGA_BUFFER_CMD_DATA = 1, // data from host-->device commands
-	FPGA_BUFFER_RESP_DATA = 2, // data from device-->host responses
+	FPGA_BUFFER_CMD = 0, // 512B, traffic on CMD line
+	FPGA_BUFFER_CMD_DATA = 1, // 512B, data from host-->device commands, also toolkit comms
+	FPGA_BUFFER_RESP_DATA = 2, // 512B, data from device-->host responses
 };
+// A word on buffer sizing (implied by the code):
+// 0 - 7 (mmc.c), 32 (mmc.c), 512 (glitch.c)
+// 1 - 512 (mmc.c), 512 (glitch.c)
+// 2 - 512 (glitch.c)
 
 void fpga_select_active_buffer(enum FPGA_BUFFER buffer);
 void fpga_reset_device(int do_clock_stuck_glitch);
