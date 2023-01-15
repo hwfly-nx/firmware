@@ -172,7 +172,7 @@ enum STATUSCODE glitch_reuse_offsets(logger *lgr, session_info_t *session_info, 
 		glitch_cfg.offset = cfg.timings[i].offset;
 		glitch_cfg.width = cfg.timings[i].width;
 		glitch_cfg.subcycle_delay = 0;
-		glitch_cfg.timeout = 50;
+		glitch_cfg.timeout = 100;
 
 		// Allow each config to be rejected by the heuristic 3x before moving on
 		const unsigned int retries_per_config = 3;
@@ -234,7 +234,7 @@ enum STATUSCODE glitch_search_new_offset(logger *lgr, session_info_t *session_in
 	glitch_cfg_t glitch_cfg;
 	glitch_cfg.width = START_GLITCH_WIDTH;
 	glitch_cfg.subcycle_delay = 0;
-	glitch_cfg.timeout = 50;
+	glitch_cfg.timeout = 100;
 
 	bool fatal_abort = false;
 	bool reflash = false;
